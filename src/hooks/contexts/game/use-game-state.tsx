@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from "react";
+// PATH: src/hooks/contexts/game/use-game-state.tsx
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Game, GameStateContextType, Player } from "./game-types";
 import { getErrorMessage } from "@/lib/utils";
 import { toast } from "sonner";
@@ -12,11 +13,11 @@ import {
   // Firestore,
   // DocumentReference,
   // SetOptions,
-  // onSnapshot,
+  onSnapshot,
   updateDoc,
 } from "firebase/firestore";
 import firebase from "@/lib/firebase-config";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { usePlayer } from "../player/use-player";
 
 const db = getFirestore(firebase);
@@ -31,6 +32,12 @@ export const GameStateProvider: React.FC<{
   const { push } = useRouter();
   const { setPlayer } = usePlayer();
   const [loading, setLoading] = useState(false);
+
+  const [game, setGame] = useState<Game | null>(null);
+
+  const params = useParams();
+  const gameID = useMemo(() => params?.code, [params]) as string;
+  // const entity = useMemo(() => params?.entity, [params]) as string;
 
   // Check if a game exists
   const checkGameExists = async (GameID: string) => {
@@ -49,7 +56,6 @@ export const GameStateProvider: React.FC<{
     player: Partial<Player>
   ) => {
     setLoading(true);
-
     let gameID = generateGameID();
     while (await checkGameExists(gameID)) {
       gameID = generateGameID();
@@ -71,6 +77,13 @@ export const GameStateProvider: React.FC<{
       // Create the game
       await setDoc(doc(db, "games", gameID), game);
 
+      // Get the game
+      const docRef = doc(db, "games", gameID);
+      const docSnap = await getDoc(docRef);
+
+      // Set Game
+      setGame(docSnap.data() as Game);
+
       toast.success("Game created successfully", {
         description: "You will be redirected to your game",
       });
@@ -78,7 +91,7 @@ export const GameStateProvider: React.FC<{
       setLoading(false);
 
       // Redirect to the game
-      push(`/game/${gameID}`);
+      push(`/game/p/${gameID}`);
     } catch (error: unknown) {
       const em = getErrorMessage(error);
       console.log("Error @use-game-state.createGame: ", em);
@@ -110,10 +123,13 @@ export const GameStateProvider: React.FC<{
         // Set Player
         setPlayer(player as Player);
 
+        // Set Game
+        setGame(docSnap.data() as Game);
+
         setLoading(false);
 
         // Redirect to the game
-        push(`/game/${gameID}`);
+        push(`/game/p/${gameID}`);
       } catch (error: unknown) {
         const em = getErrorMessage(error);
         console.log("Error @use-game-state.joinGame: ", em);
@@ -145,6 +161,65 @@ export const GameStateProvider: React.FC<{
     return null;
   };
 
+  // Listen to a game and update the state
+  const listenToGame = async (gameID: string) => {
+    const docRef = doc(db, "games", gameID);
+    onSnapshot(docRef, (doc) => {
+      setGame(doc.data() as Game);
+    });
+  };
+
+  // Update a player
+  const updatePlayer = async (player: Player) => {
+    const docRef = doc(db, "games", gameID);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const players = docSnap.data().players;
+      const updatedPlayers = players.map((p: Player) =>
+        p.id === player.id ? player : p
+      );
+
+      try {
+        await updateDoc(docRef, {
+          players: updatedPlayers,
+        });
+
+        toast.success("Player updated successfully", {
+          description: "Your player profile has been updated",
+        });
+      } catch (error: unknown) {
+        const em = getErrorMessage(error);
+        console.log("Error @use-game-state.updatePlayer: ", em);
+
+        toast.error("Failed to update the player", {
+          description: em,
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (gameID) {
+      listenToGame(gameID);
+    }
+  }, [gameID]);
+
+  // Kick player if they are not in the game
+  // useEffect(() => {
+  //   if (game && player) {
+  //     const playerInGame = game.players.find((p) => p.id === player.id);
+
+  //     if (!playerInGame) {
+  //       toast.error("You are not in the game", {
+  //         description: "You will be redirected to the home page",
+  //       });
+
+  //       replace("/");
+  //     }
+  //   }
+  // }, [game, player]);
+
   return (
     <GameStateContext.Provider
       value={{
@@ -153,6 +228,9 @@ export const GameStateProvider: React.FC<{
         loading,
         setLoading,
         getGame,
+        gameID,
+        game,
+        updatePlayer,
       }}
     >
       {children}

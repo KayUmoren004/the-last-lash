@@ -1,3 +1,5 @@
+// PATH: src/hooks/contexts/game/game-functions.ts
+
 // Generate Random Room ID (4 numbers and 1 letter)
 export const generateGameID = (): string => {
   let roomID = "";

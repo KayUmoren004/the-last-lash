@@ -1,3 +1,5 @@
+// PATH: src/hooks/contexts/game/game-types.tsx
+
 export type Player = {
   id: string;
   name: string;
@@ -35,4 +37,7 @@ export type GameStateContextType = {
   ) => Promise<void>;
   joinGame: (gameID: string, player: Partial<Player>) => Promise<void>;
   getGame: (gameID: string) => Promise<Game | null>;
+  game: Game | null;
+  gameID: string;
+  updatePlayer: (player: Player) => Promise<void>;
 };

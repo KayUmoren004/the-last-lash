@@ -2,6 +2,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Player } from "../game/game-types";
 
+// PATH: src/hooks/contexts/player/use-player.tsx
+
 type PlayerContextType = {
   player: Player | null;
   setPlayer: (player: Player) => void;
